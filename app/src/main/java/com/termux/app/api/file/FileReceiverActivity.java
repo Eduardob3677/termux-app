@@ -76,7 +76,12 @@ public class FileReceiverActivity extends AppCompatActivity {
 
         if (Intent.ACTION_SEND.equals(action) && type != null) {
             final String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
-            final Uri sharedUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            final Uri sharedUri;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                sharedUri = intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
+            } else {
+                sharedUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            }
 
             if (sharedUri != null) {
                 handleContentUri(sharedUri, sharedTitle);
