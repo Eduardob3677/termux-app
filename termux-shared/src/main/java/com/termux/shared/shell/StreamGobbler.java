@@ -36,7 +36,6 @@ import com.termux.shared.logger.Logger;
  * https://github.com/Chainfire/libsuperuser/blob/1.1.0.201907261845/libsuperuser/src/eu/chainfire/libsuperuser/Shell.java#L141
  * https://github.com/Chainfire/libsuperuser/blob/1.1.0.201907261845/libsuperuser/src/eu/chainfire/libsuperuser/StreamGobbler.java
  */
-@SuppressWarnings({"WeakerAccess"})
 public class StreamGobbler extends Thread {
     private static int threadCounter = 0;
     private static int incThreadCounter() {
