@@ -453,14 +453,11 @@ public class TermuxFileUtils {
                     boolean isWritable = file.canWrite();
                     
                     if (isWritable) {
-                        // Set read-only permissions (removes all write permissions)
-                        if (file.setReadOnly()) {
-                            filesFixed++;
-                            Logger.logDebug(LOG_TAG, "Fixed permissions for: " + file.getAbsolutePath());
-                        } else {
-                            filesFailed++;
-                            Logger.logWarn(LOG_TAG, "Failed to fix permissions for: " + file.getAbsolutePath());
-                        }
+                        // Set read-only permissions (0444 = r--r--r--)
+                        // Using Os.chmod for precise permission control required by Android 10+
+                        android.system.Os.chmod(file.getAbsolutePath(), 0444);
+                        filesFixed++;
+                        Logger.logDebug(LOG_TAG, "Fixed permissions for: " + file.getAbsolutePath());
                     }
                 } catch (Exception e) {
                     filesFailed++;
@@ -488,6 +485,8 @@ public class TermuxFileUtils {
         
         File[] files = dir.listFiles();
         if (files == null) {
+            // listFiles() returns null on I/O errors or permission issues
+            Logger.logDebug(LOG_TAG, "Unable to list files in directory: " + dir.getAbsolutePath());
             return result;
         }
 
