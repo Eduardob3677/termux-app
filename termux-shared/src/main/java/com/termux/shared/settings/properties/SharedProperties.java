@@ -234,7 +234,7 @@ public class SharedProperties {
         Properties properties = new Properties();
 
         if (propertiesFile == null) {
-            Logger.logWarn(LOG_TAG, "Not loading properties since file is null");
+            Logger.logDebug(LOG_TAG, "Not loading properties since file is null");
             return properties;
         }
 

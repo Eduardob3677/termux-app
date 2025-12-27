@@ -681,7 +681,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (text == null || text.isEmpty()) return;
         if (mLastToast != null) mLastToast.cancel();
         mLastToast = Toast.makeText(TermuxActivity.this, text, longDuration ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT);
-        mLastToast.setGravity(Gravity.TOP, 0, 0);
+        // Note: setGravity() is deprecated since Android 11 (API 30) and shouldn't be used on text toasts
+        // The values are ignored by the system on newer Android versions
         mLastToast.show();
     }
 
