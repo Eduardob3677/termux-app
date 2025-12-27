@@ -811,7 +811,7 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
 
         // Build the notification
-        Notification.Builder builder =  NotificationUtils.geNotificationBuilder(this,
+        Notification.Builder builder =  NotificationUtils.getNotificationBuilder(this,
             TermuxConstants.TERMUX_APP_NOTIFICATION_CHANNEL_ID, priority,
             TermuxConstants.TERMUX_APP_NAME, notificationText, null,
             contentIntent, null, NotificationUtils.NOTIFICATION_MODE_SILENT);

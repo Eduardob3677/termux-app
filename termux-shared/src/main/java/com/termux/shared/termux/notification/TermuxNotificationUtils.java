@@ -71,7 +71,7 @@ public class TermuxNotificationUtils {
                                                                                  final PendingIntent contentIntent,
                                                                                  final PendingIntent deleteIntent,
                                                                                  final int notificationMode) {
-        Notification.Builder builder =  NotificationUtils.geNotificationBuilder(termuxPackageContext,
+        Notification.Builder builder =  NotificationUtils.getNotificationBuilder(termuxPackageContext,
             channelId, priority,
             title, notificationText, notificationBigText, contentIntent, deleteIntent, notificationMode);
 

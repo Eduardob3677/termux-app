@@ -230,6 +230,15 @@ public class FileReceiverActivity extends AppCompatActivity {
             showErrorDialogAndQuit("Error saving file:\n\n" + e);
             Logger.logStackTraceWithMessage(LOG_TAG, "Error saving file", e);
             return null;
+        } finally {
+            // Ensure input stream is always closed
+            try {
+                if (in != null) {
+                    in.close();
+                }
+            } catch (IOException e) {
+                Logger.logStackTrace(LOG_TAG, e);
+            }
         }
     }
 
