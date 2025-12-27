@@ -59,6 +59,10 @@ public class TermuxApplication extends Application {
                 return;
             }
 
+            // Fix APK/DEX/JAR permissions for Android 10+ compatibility
+            // This ensures files like those installed by old termux-am package are read-only
+            TermuxFileUtils.fixApkAndJarPermissions(context);
+
             // Setup termux-am-socket server
             TermuxAmSocketServer.setupTermuxAmSocketServer(context);
         } else {
