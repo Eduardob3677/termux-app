@@ -1,5 +1,6 @@
 package com.termux.app;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
@@ -10,6 +11,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.ContextMenu;
@@ -61,7 +63,11 @@ import com.termux.view.TerminalViewClient;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.viewpager.widget.ViewPager;
 
@@ -175,6 +181,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private float mTerminalToolbarDefaultHeight;
 
+    /**
+     * Executor service for background tasks (replaces deprecated Thread usage)
+     */
+    private java.util.concurrent.ExecutorService mExecutorService;
+
+    /**
+     * Activity result launcher for storage permission requests (Android 11+)
+     */
+    private ActivityResultLauncher<Intent> mStoragePermissionLauncher;
+
+    /**
+     * Activity result launcher for runtime permissions
+     */
+    private ActivityResultLauncher<String[]> mPermissionsLauncher;
+
 
     private static final int CONTEXT_MENU_SELECT_URL_ID = 0;
     private static final int CONTEXT_MENU_SHARE_TRANSCRIPT_ID = 1;
@@ -202,6 +223,26 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (savedInstanceState != null)
             mIsActivityRecreated = savedInstanceState.getBoolean(ARG_ACTIVITY_RECREATED, false);
 
+        // Initialize background executor service for modern async operations
+        mExecutorService = java.util.concurrent.Executors.newCachedThreadPool();
+
+        // Initialize modern activity result launchers
+        mStoragePermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                Logger.logVerbose(LOG_TAG, "Storage permission launcher result received");
+                requestStoragePermission(true);
+            }
+        );
+
+        mPermissionsLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestMultiplePermissions(),
+            permissions -> {
+                Logger.logVerbose(LOG_TAG, "Runtime permissions result: " + permissions);
+                requestStoragePermission(true);
+            }
+        );
+
         // Delete ReportInfo serialized object files from cache older than 14 days
         ReportActivity.deleteReportInfoFilesOlderThanXDays(this, 14, false);
 
@@ -214,6 +255,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_termux);
+
+        // Set up back press handling for Android 16+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (getDrawer().isDrawerOpen(Gravity.LEFT)) {
+                    getDrawer().closeDrawers();
+                } else {
+                    finishActivityIfNotFinishing();
+                }
+            }
+        });
 
         // Load termux shared preferences
         // This will also fail if TermuxConstants.TERMUX_PACKAGE_NAME does not equal applicationId
@@ -351,6 +404,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         Logger.logDebug(LOG_TAG, "onDestroy");
 
         if (mIsInvalidState) return;
+
+        // Shutdown executor service for background tasks
+        if (mExecutorService != null) {
+            mExecutorService.shutdown();
+            try {
+                if (!mExecutorService.awaitTermination(800, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                    mExecutorService.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                mExecutorService.shutdownNow();
+            }
+        }
 
         if (mTermuxService != null) {
             // Do not leave service and session clients with references to activity.
@@ -598,16 +663,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
 
-    @SuppressLint("RtlHardcoded")
-    @Override
-    public void onBackPressed() {
-        if (getDrawer().isDrawerOpen(Gravity.LEFT)) {
-            getDrawer().closeDrawers();
-        } else {
-            finishActivityIfNotFinishing();
-        }
-    }
-
     public void finishActivityIfNotFinishing() {
         // prevent duplicate calls to finish() if called from multiple places
         if (!TermuxActivity.this.isFinishing()) {
@@ -763,48 +818,50 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     /**
      * For processes to access primary external storage (/sdcard, /storage/emulated/0, ~/storage/shared),
      * termux needs to be granted legacy WRITE_EXTERNAL_STORAGE or MANAGE_EXTERNAL_STORAGE permissions
-     * if targeting targetSdkVersion 30 (android 11) and running on sdk 30 (android 11) and higher.
+     * Request storage permissions using modern Android 16 API.
+     * On Android 11+, will request MANAGE_EXTERNAL_STORAGE via Settings intent.
+     * On Android 6-10, will request READ/WRITE_EXTERNAL_STORAGE via runtime permissions.
      */
     public void requestStoragePermission(boolean isPermissionCallback) {
-        new Thread() {
-            @Override
-            public void run() {
-                // Do not ask for permission again
-                int requestCode = isPermissionCallback ? -1 : PermissionUtils.REQUEST_GRANT_STORAGE_PERMISSION;
-
-                // If permission is granted, then also setup storage symlinks.
-                if(PermissionUtils.checkAndRequestLegacyOrManageExternalStoragePermission(
-                    TermuxActivity.this, requestCode, !isPermissionCallback)) {
-                    if (isPermissionCallback)
-                        Logger.logInfoAndShowToast(TermuxActivity.this, LOG_TAG,
-                            getString(com.termux.shared.R.string.msg_storage_permission_granted_on_request));
-
-                    TermuxInstaller.setupStorageSymlinks(TermuxActivity.this);
-                } else {
-                    if (isPermissionCallback)
-                        Logger.logInfoAndShowToast(TermuxActivity.this, LOG_TAG,
-                            getString(com.termux.shared.R.string.msg_storage_permission_not_granted_on_request));
-                }
+        mExecutorService.execute(() -> {
+            // Check if already granted
+            boolean requestLegacyStoragePermission = PermissionUtils.isLegacyExternalStoragePossible(TermuxActivity.this);
+            
+            if (PermissionUtils.checkStoragePermission(TermuxActivity.this, requestLegacyStoragePermission)) {
+                if (isPermissionCallback)
+                    Logger.logInfoAndShowToast(TermuxActivity.this, LOG_TAG,
+                        getString(com.termux.shared.R.string.msg_storage_permission_granted_on_request));
+                TermuxInstaller.setupStorageSymlinks(TermuxActivity.this);
+                return;
             }
-        }.start();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        Logger.logVerbose(LOG_TAG, "onActivityResult: requestCode: " + requestCode + ", resultCode: "  + resultCode + ", data: "  + IntentUtils.getIntentString(data));
-        if (requestCode == PermissionUtils.REQUEST_GRANT_STORAGE_PERMISSION) {
-            requestStoragePermission(true);
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        Logger.logVerbose(LOG_TAG, "onRequestPermissionsResult: requestCode: " + requestCode + ", permissions: "  + Arrays.toString(permissions) + ", grantResults: "  + Arrays.toString(grantResults));
-        if (requestCode == PermissionUtils.REQUEST_GRANT_STORAGE_PERMISSION) {
-            requestStoragePermission(true);
-        }
+            
+            // If callback, just check status
+            if (isPermissionCallback) {
+                Logger.logInfoAndShowToast(TermuxActivity.this, LOG_TAG,
+                    getString(com.termux.shared.R.string.msg_storage_permission_not_granted_on_request));
+                return;
+            }
+            
+            // Request permission using modern API
+            runOnUiThread(() -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !requestLegacyStoragePermission) {
+                    // Android 11+: Request MANAGE_EXTERNAL_STORAGE
+                    try {
+                        Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                        intent.setData(Uri.parse("package:" + getPackageName()));
+                        mStoragePermissionLauncher.launch(intent);
+                    } catch (Exception e) {
+                        Logger.logError(LOG_TAG, "Failed to launch manage storage permission: " + e.getMessage());
+                    }
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    // Android 6-10: Request READ/WRITE permissions
+                    mPermissionsLauncher.launch(new String[]{
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    });
+                }
+            });
+        });
     }
 
 
@@ -911,6 +968,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     public static void updateTermuxActivityStyling(Context context, boolean recreateActivity) {
         // Make sure that terminal styling is always applied.
         Intent stylingIntent = new Intent(TERMUX_ACTIVITY.ACTION_RELOAD_STYLE);
+        stylingIntent.setPackage(context.getPackageName());
         stylingIntent.putExtra(TERMUX_ACTIVITY.EXTRA_RECREATE_ACTIVITY, recreateActivity);
         context.sendBroadcast(stylingIntent);
     }
@@ -921,7 +979,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         intentFilter.addAction(TERMUX_ACTIVITY.ACTION_RELOAD_STYLE);
         intentFilter.addAction(TERMUX_ACTIVITY.ACTION_REQUEST_PERMISSIONS);
 
-        registerReceiver(mTermuxActivityBroadcastReceiver, intentFilter);
+        ContextCompat.registerReceiver(this, mTermuxActivityBroadcastReceiver, intentFilter, ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 
     private void unregisterTermuxActivityBroadcastReceiver() {

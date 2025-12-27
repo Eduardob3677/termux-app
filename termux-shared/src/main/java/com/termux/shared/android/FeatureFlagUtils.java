@@ -84,20 +84,47 @@ public class FeatureFlagUtils {
 
     /**
      * Get all feature flags in their raw form.
+     * Uses reflection to access hidden Android API with proper type checking.
+     * Returns null if the API is not available or returns unexpected types.
      */
-    @SuppressWarnings("unchecked")
     public static Map<String, String> getAllFeatureFlags() {
         ReflectionUtils.bypassHiddenAPIReflectionRestrictions();
         try {
             @SuppressLint("PrivateApi") Class<?> clazz = Class.forName(FEATURE_FLAGS_CLASS);
             Method getAllFeatureFlagsMethod = ReflectionUtils.getDeclaredMethod(clazz, "getAllFeatureFlags");
             if (getAllFeatureFlagsMethod == null) return null;
-            return (Map<String, String>) ReflectionUtils.invokeMethod(getAllFeatureFlagsMethod, null).value;
+            
+            Object result = ReflectionUtils.invokeMethod(getAllFeatureFlagsMethod, null).value;
+            
+            // Type-safe conversion with validation
+            if (result instanceof Map<?, ?>) {
+                return convertToStringMap((Map<?, ?>) result);
+            }
+            return null;
+        } catch (ClassCastException e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Feature flags map has unexpected type", e);
+            return null;
         } catch (Exception e) {
-            // ClassCastException may be thrown
             Logger.logStackTraceWithMessage(LOG_TAG, "Failed to get all feature flags", e);
             return null;
         }
+    }
+
+    /**
+     * Safely convert a raw map to Map<String, String> with type validation.
+     * Returns null if any entry is not a String key-value pair.
+     */
+    private static Map<String, String> convertToStringMap(Map<?, ?> rawMap) {
+        Map<String, String> result = new java.util.HashMap<>();
+        for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+            if (entry.getKey() instanceof String && entry.getValue() instanceof String) {
+                result.put((String) entry.getKey(), (String) entry.getValue());
+            } else {
+                Logger.logError(LOG_TAG, "Feature flags map contains non-string entries");
+                return null;
+            }
+        }
+        return result;
     }
 
     /**
