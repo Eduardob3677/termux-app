@@ -490,6 +490,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             }
         }
 
+        // Handle storage permission request intent
+        if (intent != null && TERMUX_ACTIVITY.ACTION_REQUEST_PERMISSIONS.equals(intent.getAction())) {
+            Logger.logDebug(LOG_TAG, "Processing ACTION_REQUEST_PERMISSIONS intent");
+            requestStoragePermission(false);
+        }
+
         // Update the {@link TerminalSession} and {@link TerminalEmulator} clients.
         mTermuxService.setTermuxTerminalSessionClient(mTermuxTerminalSessionActivityClient);
     }
