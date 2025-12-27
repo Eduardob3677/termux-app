@@ -1,13 +1,16 @@
 name: Release Build
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
       - 'github-releases/**'
+      - 'fix/bump-deprecated-versions'
   pull_request:
     branches:
       - master
+      - 'fix/bump-deprecated-versions'
 
 jobs:
   build:
