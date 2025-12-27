@@ -79,6 +79,10 @@ public class SettingsActivity extends AppCompatActivity {
 
             setPreferencesFromResource(R.xml.root_preferences, rootKey);
 
+            // Ensure mExecutorService is initialized before use
+            if (mExecutorService == null) {
+                mExecutorService = Executors.newCachedThreadPool();
+            }
             mExecutorService.execute(() -> {
                 configureTermuxAPIPreference(context);
                 configureTermuxFloatPreference(context);
