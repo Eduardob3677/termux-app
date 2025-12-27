@@ -956,6 +956,9 @@ public final class TermuxConstants {
             @Deprecated
             public static final String EXTRA_RELOAD_STYLE = TermuxConstants.TERMUX_PACKAGE_NAME + ".app.reload_style"; // Default: "com.termux.app.reload_style"
 
+            /** Value for EXTRA_RELOAD_STYLE to request storage permissions */
+            public static final String EXTRA_VALUE_RELOAD_STYLE_STORAGE = "storage";
+
             /**  Intent {@code boolean} extra for whether to recreate activity for the TERMUX_ACTIVITY.ACTION_RELOAD_STYLE intent. */
             public static final String EXTRA_RECREATE_ACTIVITY = TERMUX_APP.TERMUX_ACTIVITY_NAME + ".EXTRA_RECREATE_ACTIVITY"; // Default: "com.termux.app.TermuxActivity.EXTRA_RECREATE_ACTIVITY"
 

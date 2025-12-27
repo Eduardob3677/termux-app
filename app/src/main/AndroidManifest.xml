@@ -193,6 +193,14 @@
             android:name=".shared.activities.ReportActivity$ReportActivityBroadcastReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".app.TermuxSetupStorageReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="${TERMUX_PACKAGE_NAME}.app.reload_style" />
+            </intent-filter>
+        </receiver>
+
 
         <service
             android:name=".app.TermuxService"
