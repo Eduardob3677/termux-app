@@ -95,9 +95,21 @@ public class TermuxSession {
             if (!executionCommand.isFailsafe) {
                 for (String shellBinary : UnixShellEnvironment.LOGIN_SHELL_BINARIES) {
                     File shellFile = new File(defaultBinPath, shellBinary);
-                    if (shellFile.canExecute()) {
-                        executionCommand.executable = shellFile.getAbsolutePath();
-                        break;
+                    // Check if file exists before checking if it's executable
+                    if (shellFile.exists()) {
+                        // If file exists but is not executable, try to set executable permission
+                        if (!shellFile.canExecute()) {
+                            Logger.logVerbose(LOG_TAG, "Shell binary \"" + shellFile.getAbsolutePath() + "\" exists but is not executable, attempting to set executable permission");
+                            shellFile.setExecutable(true);
+                        }
+                        // Recheck if file is executable after attempting to set permission
+                        if (shellFile.canExecute()) {
+                            executionCommand.executable = shellFile.getAbsolutePath();
+                            Logger.logDebug(LOG_TAG, "Using shell binary: " + shellFile.getAbsolutePath());
+                            break;
+                        } else {
+                            Logger.logWarn(LOG_TAG, "Shell binary \"" + shellFile.getAbsolutePath() + "\" exists but failed to set executable permission");
+                        }
                     }
                 }
             }
