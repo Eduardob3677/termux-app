@@ -101,8 +101,8 @@ public class TermuxSession {
                         // If file exists but is not executable, try to set executable permission
                         if (!shellFile.canExecute()) {
                             Logger.logVerbose(LOG_TAG, "Shell binary \"" + shellPath + "\" exists but is not executable, attempting to set executable permission");
-                            // Set executable permission for owner only for security
-                            boolean permissionSet = shellFile.setExecutable(true, true);
+                            // Set executable permission
+                            boolean permissionSet = shellFile.setExecutable(true);
                             if (!permissionSet) {
                                 Logger.logWarn(LOG_TAG, "Failed to set executable permission for shell binary \"" + shellPath + "\"");
                             }
