@@ -26,6 +26,9 @@ import com.termux.shared.termux.TermuxUtils;
 import com.termux.shared.activity.media.AppCompatActivityUtils;
 import com.termux.shared.theme.NightMode;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class SettingsActivity extends AppCompatActivity {
 
     @Override
@@ -53,6 +56,22 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     public static class RootPreferencesFragment extends PreferenceFragmentCompat {
+        private ExecutorService mExecutorService;
+
+        @Override
+        public void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            mExecutorService = Executors.newCachedThreadPool();
+        }
+
+        @Override
+        public void onDestroy() {
+            super.onDestroy();
+            if (mExecutorService != null) {
+                mExecutorService.shutdown();
+            }
+        }
+
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
             Context context = getContext();
@@ -60,17 +79,14 @@ public class SettingsActivity extends AppCompatActivity {
 
             setPreferencesFromResource(R.xml.root_preferences, rootKey);
 
-            new Thread() {
-                @Override
-                public void run() {
-                    configureTermuxAPIPreference(context);
-                    configureTermuxFloatPreference(context);
-                    configureTermuxTaskerPreference(context);
-                    configureTermuxWidgetPreference(context);
-                    configureAboutPreference(context);
-                    configureDonatePreference(context);
-                }
-            }.start();
+            mExecutorService.execute(() -> {
+                configureTermuxAPIPreference(context);
+                configureTermuxFloatPreference(context);
+                configureTermuxTaskerPreference(context);
+                configureTermuxWidgetPreference(context);
+                configureAboutPreference(context);
+                configureDonatePreference(context);
+            });
         }
 
         private void configureTermuxAPIPreference(@NonNull Context context) {
@@ -113,28 +129,25 @@ public class SettingsActivity extends AppCompatActivity {
             Preference aboutPreference = findPreference("about");
             if (aboutPreference != null) {
                 aboutPreference.setOnPreferenceClickListener(preference -> {
-                    new Thread() {
-                        @Override
-                        public void run() {
-                            String title = "About";
+                    mExecutorService.execute(() -> {
+                        String title = "About";
 
-                            StringBuilder aboutString = new StringBuilder();
-                            aboutString.append(TermuxUtils.getAppInfoMarkdownString(context, TermuxUtils.AppInfoMode.TERMUX_AND_PLUGIN_PACKAGES));
-                            aboutString.append("\n\n").append(AndroidUtils.getDeviceInfoMarkdownString(context, true));
-                            aboutString.append("\n\n").append(TermuxUtils.getImportantLinksMarkdownString(context));
+                        StringBuilder aboutString = new StringBuilder();
+                        aboutString.append(TermuxUtils.getAppInfoMarkdownString(context, TermuxUtils.AppInfoMode.TERMUX_AND_PLUGIN_PACKAGES));
+                        aboutString.append("\n\n").append(AndroidUtils.getDeviceInfoMarkdownString(context, true));
+                        aboutString.append("\n\n").append(TermuxUtils.getImportantLinksMarkdownString(context));
 
-                            String userActionName = UserAction.ABOUT.getName();
+                        String userActionName = UserAction.ABOUT.getName();
 
-                            ReportInfo reportInfo = new ReportInfo(userActionName,
-                                TermuxConstants.TERMUX_APP.TERMUX_SETTINGS_ACTIVITY_NAME, title);
-                            reportInfo.setReportString(aboutString.toString());
-                            reportInfo.setReportSaveFileLabelAndPath(userActionName,
-                                Environment.getExternalStorageDirectory() + "/" +
-                                    FileUtils.sanitizeFileName(TermuxConstants.TERMUX_APP_NAME + "-" + userActionName + ".log", true, true));
+                        ReportInfo reportInfo = new ReportInfo(userActionName,
+                            TermuxConstants.TERMUX_APP.TERMUX_SETTINGS_ACTIVITY_NAME, title);
+                        reportInfo.setReportString(aboutString.toString());
+                        reportInfo.setReportSaveFileLabelAndPath(userActionName,
+                            Environment.getExternalStorageDirectory() + "/" +
+                                FileUtils.sanitizeFileName(TermuxConstants.TERMUX_APP_NAME + "-" + userActionName + ".log", true, true));
 
-                            ReportActivity.startReportActivity(context, reportInfo);
-                        }
-                    }.start();
+                        ReportActivity.startReportActivity(context, reportInfo);
+                    });
 
                     return true;
                 });
