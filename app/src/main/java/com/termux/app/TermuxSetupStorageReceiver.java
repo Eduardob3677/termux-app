@@ -1,5 +1,6 @@
 package com.termux.app;
 
+import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -35,7 +36,7 @@ public class TermuxSetupStorageReceiver extends BroadcastReceiver {
         if (TERMUX_ACTIVITY.ACTION_RELOAD_STYLE.equals(action)) {
             String extraReloadStyle = intent.getStringExtra(TERMUX_ACTIVITY.EXTRA_RELOAD_STYLE);
             
-            if ("storage".equals(extraReloadStyle)) {
+            if (TERMUX_ACTIVITY.EXTRA_VALUE_RELOAD_STYLE_STORAGE.equals(extraReloadStyle)) {
                 Logger.logDebug(LOG_TAG, "Received storage permission request, starting TermuxActivity");
                 
                 // Start TermuxActivity with ACTION_REQUEST_PERMISSIONS
@@ -45,8 +46,10 @@ public class TermuxSetupStorageReceiver extends BroadcastReceiver {
                 
                 try {
                     context.startActivity(activityIntent);
-                } catch (Exception e) {
-                    Logger.logError(LOG_TAG, "Failed to start TermuxActivity: " + e.getMessage());
+                } catch (ActivityNotFoundException e) {
+                    Logger.logError(LOG_TAG, "Failed to start TermuxActivity - activity not found: " + e.getMessage());
+                } catch (SecurityException e) {
+                    Logger.logError(LOG_TAG, "Failed to start TermuxActivity - security exception: " + e.getMessage());
                 }
             } else {
                 Logger.logWarn(LOG_TAG, "Received reload_style action with non-storage extra: " + extraReloadStyle);

@@ -996,7 +996,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (intent == null) return;
 
         String extraReloadStyle = intent.getStringExtra(TERMUX_ACTIVITY.EXTRA_RELOAD_STYLE);
-        if ("storage".equals(extraReloadStyle)) {
+        if (TERMUX_ACTIVITY.EXTRA_VALUE_RELOAD_STYLE_STORAGE.equals(extraReloadStyle)) {
             intent.removeExtra(TERMUX_ACTIVITY.EXTRA_RELOAD_STYLE);
             intent.setAction(TERMUX_ACTIVITY.ACTION_REQUEST_PERMISSIONS);
         }
