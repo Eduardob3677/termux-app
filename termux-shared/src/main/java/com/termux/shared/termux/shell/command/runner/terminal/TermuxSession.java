@@ -97,18 +97,23 @@ public class TermuxSession {
                     File shellFile = new File(defaultBinPath, shellBinary);
                     // Check if file exists before checking if it's executable
                     if (shellFile.exists()) {
+                        String shellPath = shellFile.getAbsolutePath();
                         // If file exists but is not executable, try to set executable permission
                         if (!shellFile.canExecute()) {
-                            Logger.logVerbose(LOG_TAG, "Shell binary \"" + shellFile.getAbsolutePath() + "\" exists but is not executable, attempting to set executable permission");
-                            shellFile.setExecutable(true);
+                            Logger.logVerbose(LOG_TAG, "Shell binary \"" + shellPath + "\" exists but is not executable, attempting to set executable permission");
+                            // Set executable permission for owner only for security
+                            boolean permissionSet = shellFile.setExecutable(true, true);
+                            if (!permissionSet) {
+                                Logger.logWarn(LOG_TAG, "Failed to set executable permission for shell binary \"" + shellPath + "\"");
+                            }
                         }
                         // Recheck if file is executable after attempting to set permission
                         if (shellFile.canExecute()) {
-                            executionCommand.executable = shellFile.getAbsolutePath();
-                            Logger.logDebug(LOG_TAG, "Using shell binary: " + shellFile.getAbsolutePath());
+                            executionCommand.executable = shellPath;
+                            Logger.logDebug(LOG_TAG, "Using shell binary: " + shellPath);
                             break;
                         } else {
-                            Logger.logWarn(LOG_TAG, "Shell binary \"" + shellFile.getAbsolutePath() + "\" exists but failed to set executable permission");
+                            Logger.logWarn(LOG_TAG, "Shell binary \"" + shellPath + "\" exists but is not executable");
                         }
                     }
                 }
