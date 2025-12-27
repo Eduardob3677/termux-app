@@ -283,6 +283,8 @@ public class PermissionUtils {
         if (requestCode < 0)
             return false;
 
+        // MANAGE_EXTERNAL_STORAGE permission was introduced in Android R (API 30)
+        // For devices running API 23-29, use legacy storage permissions instead
         if (requestLegacyStoragePermission || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             requestLegacyStorageExternalPermission(context, requestCode);
         } else {
