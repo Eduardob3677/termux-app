@@ -805,7 +805,7 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
 
         final boolean wakeLockHeld = mWakeLock != null;
         if (wakeLockHeld) notificationTextBuilder.append(" (wake lock held)");
-        
+
         String notificationText = notificationTextBuilder.toString();
 
 
