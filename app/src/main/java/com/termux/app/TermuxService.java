@@ -795,13 +795,18 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         // Set notification text
         int sessionCount = getTermuxSessionsSize();
         int taskCount = mShellManager.mTermuxTasks.size();
-        String notificationText = sessionCount + " session" + (sessionCount == 1 ? "" : "s");
+        StringBuilder notificationTextBuilder = new StringBuilder();
+        notificationTextBuilder.append(sessionCount).append(" session");
+        if (sessionCount != 1) notificationTextBuilder.append("s");
         if (taskCount > 0) {
-            notificationText += ", " + taskCount + " task" + (taskCount == 1 ? "" : "s");
+            notificationTextBuilder.append(", ").append(taskCount).append(" task");
+            if (taskCount != 1) notificationTextBuilder.append("s");
         }
 
         final boolean wakeLockHeld = mWakeLock != null;
-        if (wakeLockHeld) notificationText += " (wake lock held)";
+        if (wakeLockHeld) notificationTextBuilder.append(" (wake lock held)");
+        
+        String notificationText = notificationTextBuilder.toString();
 
 
         // Set notification priority
