@@ -51,8 +51,12 @@ public class TermuxSetupStorageReceiver extends BroadcastReceiver {
                 } catch (SecurityException e) {
                     Logger.logError(LOG_TAG, "Failed to start TermuxActivity - security exception: " + e.getMessage());
                 }
-            } else {
+            } else if (extraReloadStyle != null) {
+                // Only warn for non-null unexpected values
                 Logger.logWarn(LOG_TAG, "Received reload_style action with non-storage extra: " + extraReloadStyle);
+            } else {
+                // Log at debug level when extra is null (deprecated action usage)
+                Logger.logDebug(LOG_TAG, "Received reload_style action with null extra (deprecated action)");
             }
         } else {
             Logger.logWarn(LOG_TAG, "Received unexpected action: " + action);
