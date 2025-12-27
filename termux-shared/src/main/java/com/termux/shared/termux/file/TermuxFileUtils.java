@@ -411,4 +411,99 @@ public class TermuxFileUtils {
         return markdownString.toString();
     }
 
+    /**
+     * Fix permissions of APK/DEX/JAR files in termux directories to be read-only.
+     *
+     * Android 10+ enforces that DEX/APK files must be read-only (not writable) to be loaded
+     * by the runtime. This method scans for such files in the libexec and apps directories
+     * and sets them to read-only permissions (0444).
+     *
+     * This is needed for compatibility with packages like the old termux-am that may install
+     * APK files with writable permissions, which would cause SecurityException when app_process
+     * tries to load them.
+     *
+     * @param context The context for operations.
+     */
+    public static void fixApkAndJarPermissions(@NonNull final Context context) {
+        // Only fix permissions if prefix directory exists and is accessible
+        if (!FileUtils.directoryFileExists(TERMUX_PREFIX_DIR_PATH, true)) {
+            return;
+        }
+
+        // List of directories to scan for APK/DEX/JAR files
+        List<String> dirsToScan = new ArrayList<>();
+        dirsToScan.add(TermuxConstants.TERMUX_LIBEXEC_PREFIX_DIR_PATH);
+        dirsToScan.add(TermuxConstants.TERMUX_APPS_DIR_PATH);
+
+        int filesFixed = 0;
+        int filesFailed = 0;
+
+        for (String dirPath : dirsToScan) {
+            File dir = new File(dirPath);
+            if (!dir.exists() || !dir.isDirectory()) {
+                continue;
+            }
+
+            // Recursively find all APK/DEX/JAR files
+            List<File> filesToFix = findApkDexJarFiles(dir);
+            
+            for (File file : filesToFix) {
+                try {
+                    // Check if file is writable (any write permission set)
+                    boolean isWritable = file.canWrite();
+                    
+                    if (isWritable) {
+                        // Set read-only permissions (removes all write permissions)
+                        if (file.setReadOnly()) {
+                            filesFixed++;
+                            Logger.logDebug(LOG_TAG, "Fixed permissions for: " + file.getAbsolutePath());
+                        } else {
+                            filesFailed++;
+                            Logger.logWarn(LOG_TAG, "Failed to fix permissions for: " + file.getAbsolutePath());
+                        }
+                    }
+                } catch (Exception e) {
+                    filesFailed++;
+                    Logger.logStackTraceWithMessage(LOG_TAG, "Error fixing permissions for " + file.getAbsolutePath(), e);
+                }
+            }
+        }
+
+        if (filesFixed > 0) {
+            Logger.logInfo(LOG_TAG, "Fixed permissions for " + filesFixed + " APK/DEX/JAR file(s) to read-only for Android 10+ compatibility");
+        }
+        if (filesFailed > 0) {
+            Logger.logWarn(LOG_TAG, "Failed to fix permissions for " + filesFailed + " APK/DEX/JAR file(s)");
+        }
+    }
+
+    /**
+     * Recursively find all APK/DEX/JAR files in a directory.
+     *
+     * @param dir The directory to search.
+     * @return Returns a list of APK/DEX/JAR files found.
+     */
+    private static List<File> findApkDexJarFiles(File dir) {
+        List<File> result = new ArrayList<>();
+        
+        File[] files = dir.listFiles();
+        if (files == null) {
+            return result;
+        }
+
+        for (File file : files) {
+            if (file.isDirectory()) {
+                // Recursively search subdirectories
+                result.addAll(findApkDexJarFiles(file));
+            } else if (file.isFile()) {
+                String name = file.getName().toLowerCase();
+                if (name.endsWith(".apk") || name.endsWith(".dex") || name.endsWith(".jar")) {
+                    result.add(file);
+                }
+            }
+        }
+
+        return result;
+    }
+
 }
